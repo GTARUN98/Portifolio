@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import client from './Client'; // Import the client instance
+import React, { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
+import client from "./Client"; // Import the client instance
 
-import imageUrlBuilder from '@sanity/image-url';
-import { Container, Row, Col } from 'react-bootstrap';
+import imageUrlBuilder from "@sanity/image-url";
+import { Container, Row, Col } from "react-bootstrap";
 
 const builder = imageUrlBuilder(client); // Use the client instance in the imageUrlBuilder function
 
@@ -14,9 +14,9 @@ function urlFor(source) {
 function SinglePost() {
   const { slug } = useParams();
   const [post, setPost] = useState(null);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [comment, setComment] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [comment, setComment] = useState("");
 
   useEffect(() => {
     const query = `*[_type == "post" && slug.current == $slug]{
@@ -56,9 +56,7 @@ function SinglePost() {
     }
   }, [post]);
 
-  const handleSubmit = async e => {
-    e.preventDefault();
-    const newComment = { name, email, comment };
+  const patch = async (newComment) => {
     const mutation = `patch id($id:ID!) {
       patch(id: $id) {
         setIfMissing(comments, [])
@@ -74,13 +72,19 @@ function SinglePost() {
       }
     }`;
     const params = { id: post._id };
-    const patch = client.transaction().patch(mutation, params).commit();
+    const result = await client.transaction().patch(mutation, params).commit();
+    return result;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const newComment = { name, email, comment };
     const updatedPost = await patch(newComment);
 
     setPost(updatedPost);
-    setName('');
-    setEmail('');
-    setComment('');
+    setName("");
+    setEmail("");
+    setComment("");
   };
 
   if (!post) {
@@ -88,71 +92,118 @@ function SinglePost() {
   }
 
   return (
-    <Container className="mt-5 bg-dark text-light" style={{width:"75%"}}>
-      <Row className="justify-content-center" style={{width:"100%"}}>
-        <Col md={6} style={{minWidth:"80%"}}> 
-          <img src={urlFor(post.image).width(950).height(400).url()} alt={post.title} className="img-fluid mb-3" />
-          <p style={{minWidth:"80%"}}>{post.description}</p>
-          {post.body.map(block => {
-            if (block._type === 'block') {
+    <Container
+      className="mt-5 bg-dark text-light"
+      style={{ width: "75%", paddingBottom: "100px" }}
+    >
+      <Row className="justify-content-center" style={{ width: "100%" }}>
+        <Col md={6} style={{ minWidth: "80%" }}>
+          <img
+            src={urlFor(post.image).width(950).height(400).url()}
+            alt={post.title}
+            className="img-fluid mb-3"
+          />
+          <p style={{ minWidth: "80%" }}>{post.description}</p>
+          {post.body.map((block) => {
+            if (block._type === "block") {
               return (
-                <p key={block._key} className={`mb-3 ${block.markDefs.some(mark => mark._type === 'strong') ? 'fw-bold' : 'fw-normal'}`} style={{minWidth:"80%"}}>
-                  {block.children.map(child => child.text).join('')}
+                <p
+                  key={block._key}
+                  className={`mb-3 ${
+                    block.markDefs.some((mark) => mark._type === "strong")
+                      ? "fw-bold"
+                      : "fw-normal"
+                  }`}
+                  style={{ minWidth: "80%" }}
+                >
+                  {block.children.map((child) => child.text).join("")}
                 </p>
               );
-            } else if (block._type === 'image') {
+            } else if (block._type === "image") {
               return (
-                <div key={block._key} className="mb-3" style={{minWidth:"80%"}}>
-                  <img src={urlFor(block.imageUrl).width(250).url()} alt={block.alt} className="img-fluid" />
-                  {block.caption && <p className="fst-italic text-center">{block.caption}</p>}
+                <div
+                  key={block._key}
+                  className="mb-3"
+                  style={{ minWidth: "80%" }}
+                >
+                  <img
+                    src={urlFor(block.imageUrl).width(250).url()}
+                    alt={block.alt}
+                    className="img-fluid"
+                  />
+                  {block.caption && (
+                    <p className="fst-italic text-center">{block.caption}</p>
+                  )}
                 </div>
               );
             }
             return null;
           })}
-          <p className="mb-3" style={{minWidth:"80%"}}>Published On : {new Date(post.publishedDate).toLocaleDateString()}</p>
+          <p className="mb-3" style={{ minWidth: "80%" }}>
+            Published On : {new Date(post.publishedDate).toLocaleDateString()}
+          </p>
         </Col>
       </Row>
       <Row className="justify-content-center">
-        <Col md={6} style={{minWidth:"80%"}}>
-          <h3 className="mb-4">Comments</h3>
-          {post.comments && post.comments.map((comment, index) => (
-            <div key={index} className="mb-3">
-              <p className="fw-bold">{comment.name}</p>
-              <p className="fst-italic">{comment.email}</p>
-              <p>{comment.comment}</p>
+        <Col md={6} style={{ minWidth: "80%" }}>
+          <form onSubmit={handleSubmit} style={{ width: "50%" }}>
+            <div className="mb-3 d-flex justify-content-between">
+              <div style={{ width: "48%" }}>
+                <label htmlFor="name" className="form-label">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  className="form-control"
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
+              </div>
+              <div style={{ width: "48%" }}>
+                <label htmlFor="email" className="form-label">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  className="form-control"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
             </div>
-          ))}
-          <form onSubmit={handleSubmit}>
             <div className="mb-3">
-              <label htmlFor="name" className="form-label">Name</label>
-              <input type="text" className="form-control" id="name" value={name} onChange={e => setName(e.target.value)} required />
+              <label htmlFor="comment" className="form-label">
+                Comment
+              </label>
+              <textarea
+                className="form-control"
+                id="comment"
+                rows="3"
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                required
+              ></textarea>
             </div>
-            <div className="mb-3">
-              <label htmlFor="email" className="form-label">Email</label>
-              <input type="email" className="form-control" id="email" value={email} onChange={e => setEmail(e.target.value)} required />
-            </div>
-            <div className="mb-3">
-              <label htmlFor="comment" className="form-label">Comment</label>
-              <textarea className="form-control" id="comment" rows="3" value={comment} onChange={e => setComment(e.target.value)} required></textarea>
-            </div>
-            <button type="submit" className="btn btn-primary">Submit</button>
+            <button type="submit" className="btn btn-primary">
+              Submit Comment
+            </button>
           </form>
-          <div id="disqus_thread"></div>
-          <script dangerouslySetInnerHTML={{
-            __html: `
-            var disqus_config = function () {
-              this.page.url = window.location.href;
-              this.page.identifier = '${post._id}';
-            };
-            (function() {
-              var d = document, s = d.createElement('script');
-              s.src = 'https://example.disqus.com/embed.js';
-              s.setAttribute('data-timestamp', +new Date());
-              (d.head || d.body).appendChild(s);
-            })();
-            `
-          }}></script>
+          <div className="mt-5">
+            {post.comments && post.comments.length > 0 && (
+              <h4 className="mb-3">{post.comments.length} Comments</h4>
+            )}
+            {post.comments &&
+              post.comments.map((comment, index) => (
+                <div key={index} className="bg-secondary p-3 mb-3 rounded">
+                  <h5 className="text-light mb-3">{comment.name}</h5>
+                  <p className="text-light">{comment.comment}</p>
+                </div>
+              ))}
+          </div>
         </Col>
       </Row>
     </Container>
